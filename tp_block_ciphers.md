@@ -87,3 +87,34 @@ Para resolver este desafío:
    - Fila 2: `[110, 109, 97, 116]` → `'n'`, `'m'`, `'a'`, `'t'`
    - Fila 3: `[114, 105, 120, 125]` → `'r'`, `'i'`, `'x'`, `'}'`
 5. Concatenando todos los bytes se reconstruye el texto plano original: `crypto{inmatrix}`.
+
+---
+
+## 4. Round Keys
+
+### Flag
+`crypto{r0undk3y}`
+
+### Explicación
+El paso **`AddRoundKey`** es el único punto de todo el algoritmo AES donde la clave secreta se mezcla directamente con el estado (*state*). Sin este paso, las transformaciones de AES serían simplemente una permutación fija sin secreto alguno; `AddRoundKey` es lo que convierte a AES en una verdadera "permutación con clave" (*keyed permutation*).
+
+Matemáticamente, la operación es muy directa:
+- Se toma la matriz de estado actual $S$ de 4×4 bytes.
+- Se toma la subclave de ronda $K$ de 4×4 bytes (derivada mediante el *Key Schedule* de AES).
+- Se aplica la operación **XOR bit a bit** celda por celda entre ambos:
+  $$S'_{i,j} = S_{i,j} \oplus K_{i,j} \quad \text{para } i,j \in \{0, 1, 2, 3\}$$
+
+Para resolver este desafío:
+1. Nos entregan dos matrices 4×4 de bytes: la matriz de estado `state` y la matriz de clave de ronda `round_key`.
+2. Completamos la función `add_round_key(s, k)` realizando la operación XOR celda por celda:
+   ```python
+   def add_round_key(s, k):
+       return [[s[i][j] ^ k[i][j] for j in range(4)] for i in range(4)]
+   ```
+3. Calculamos la matriz resultante celda a celda:
+   - Fila 0: `[206^173, 243^129, 61^68, 34^82]` = `[99, 114, 121, 112]` → `"cryp"`
+   - Fila 1: `[171^223, 11^100, 93^38, 31^109]` = `[116, 111, 123, 114]` → `"to{r"`
+   - Fila 2: `[16^32, 200^189, 91^53, 108^8]` = `[48, 117, 110, 100]` → `"0und"`
+   - Fila 3: `[150^253, 3^48, 194^187, 51^78]` = `[107, 51, 121, 125]` → `"k3y}"`
+4. Convertimos la matriz resultante a una secuencia de bytes con la función `matrix2bytes()` desarrollada en el ejercicio anterior.
+5. El texto resultante revela la flag: `crypto{r0undk3y}`.
