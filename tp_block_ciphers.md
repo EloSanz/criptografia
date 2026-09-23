@@ -194,3 +194,56 @@ Este desafío integra todos los componentes vistos a lo largo del módulo en una
    - **Ronda final de descifrado:** Se realiza `AddRoundKey` con la primera subclave ($K_0$).
 3. Al aplicar esta rutina completa sobre el bloque de texto cifrado (*ciphertext*) provisto en el reto, los 16 bytes resultantes se descifran en el texto plano original.
 4. El texto descifrado revela la flag final de la sección: `crypto{MYAES128}`.
+
+---
+
+# Sección: Symmetric Starter (Opcional)
+
+## 8. Modes of Operation Starter
+
+### Flag
+`crypto{bl0ck_c1ph3r5_4r3_f457_!}`
+
+### Explicación
+Un cifrador de bloques básico (como AES en su forma primitiva) sólo puede procesar un bloque de tamaño fijo a la vez (16 bytes en AES-128). Para cifrar mensajes de longitud arbitraria, se debe utilizar un **modo de operación** (*mode of operation*), como ECB, CBC, CTR o GCM.
+
+En este desafío introductorio a los modos de operación, el servidor web provee una API con dos endpoints:
+1. `encrypt_flag/`: Cifra la flag del servidor usando AES-128 en modo ECB y devuelve el texto cifrado en hexadecimal.
+2. `decrypt/<ciphertext>/`: Recibe cualquier texto cifrado en hexadecimal, lo descifra con la misma clave AES y devuelve el texto plano en hexadecimal.
+
+Para resolver este desafío:
+1. Consultamos el endpoint de cifrado:
+   `https://aes.cryptohack.org/block_cipher_starter/encrypt_flag/`
+   El servidor responde con un JSON que contiene el `ciphertext`:
+   `{"ciphertext": "bd8749cfc1bf024bc960bc6e3c2ead41a895ce9a60aeccd19e0b1986017a8b2c"}`
+2. Tomamos dicho `ciphertext` y lo enviamos al endpoint de descifrado:
+   `https://aes.cryptohack.org/block_cipher_starter/decrypt/bd8749cfc1bf024bc960bc6e3c2ead41a895ce9a60aeccd19e0b1986017a8b2c/`
+3. El servidor descifra el bloque con su clave secreta y responde con el texto plano en formato hexadecimal:
+   `{"plaintext": "63727970746f7b626c30636b5f633170683372355f3472335f663435375f217d"}`
+4. Decodificamos la cadena hexadecimal a texto ASCII legible (con `bytes.fromhex(...)` en Python o cualquier decodificador hex online).
+5. Se obtiene la flag: `crypto{bl0ck_c1ph3r5_4r3_f457_!}`.
+
+---
+
+## 9. Passwords as Keys
+
+### Flag
+`crypto{k3y5__r__n07__p455w0rdz?}`
+
+### Explicación
+Una clave criptográfica para AES-128 debe ser una secuencia completamente aleatoria de 128 bits de alta entropía ($2^{128}$ combinaciones posibles). Un error de implementación muy común en el desarrollo de software es generar la clave a partir del hash de una contraseña humana o una palabra común del diccionario.
+
+En este reto:
+- El servidor elige aleatoriamente una palabra común de un diccionario en inglés de aproximadamente 99.000 palabras (`/usr/share/dict/words`).
+- Genera la clave AES de 128 bits calculando el hash MD5 de dicha palabra: `KEY = hashlib.md5(keyword.encode()).digest()`.
+- Cifra la flag con AES en modo ECB usando esa clave.
+
+Dado que el espacio de contraseñas es sumamente reducido (apenas $\approx 10^5$ palabras frente a las $3.4 \times 10^{38}$ posibles claves de 128 bits), el sistema es totalmente vulnerable a un **ataque de diccionario** (*dictionary attack*) por fuerza bruta que toma menos de un minuto en una computadora estándar.
+
+Para resolver este desafío:
+1. Obtenemos el texto cifrado desde el endpoint:
+   `https://aes.cryptohack.org/passwords_as_keys/encrypt_flag/`
+2. Descargamos la lista oficial de palabras provista en el código fuente del reto (`https://gist.githubusercontent.com/wchargin/8927565/raw/d9783627c731268fb2935a731a618aa8e95cf465/words`).
+3. Iteramos palabra por palabra calculando su hash MD5 (`hashlib.md5(w.encode()).hexdigest()`) e intentamos descifrar el `ciphertext` usando AES-128-ECB.
+4. Al evaluar la palabra `"bluebell"`, el bloque se descifra correctamente sin errores de padding y revela el texto plano con el formato de la flag.
+5. La flag obtenida es: `crypto{k3y5__r__n07__p455w0rdz?}`.
