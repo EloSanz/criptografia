@@ -118,3 +118,79 @@ Para resolver este desafío:
    - Fila 3: `[150^253, 3^48, 194^187, 51^78]` = `[107, 51, 121, 125]` → `"k3y}"`
 4. Convertimos la matriz resultante a una secuencia de bytes con la función `matrix2bytes()` desarrollada en el ejercicio anterior.
 5. El texto resultante revela la flag: `crypto{r0undk3y}`.
+
+---
+
+## 5. Confusion through Substitution
+
+### Flag
+`crypto{l1n34rly}`
+
+### Explicación
+Claude Shannon identificó dos pilares fundamentales para el diseño de cualquier cifrador seguro: **confusión** y **difusión**. La **confusión** busca hacer que la relación entre la clave secreta y el texto cifrado sea lo más compleja y no lineal posible.
+
+En AES, la confusión se implementa en el paso **`SubBytes`**:
+- Cada byte de la matriz de estado (un valor entre `0x00` y `0xFF`) se sustituye por otro byte según una tabla precalculada de 16×16 conocida como la **S-box** (*Substitution box*).
+- La S-box de AES está rigurosamente diseñada mediante la inversión en el campo de Galois $\text{GF}(2^8)$ combinada con una transformación afín, lo que le otorga una alta resistencia contra el criptoanálisis lineal y diferencial.
+
+Para resolver este desafío:
+1. Nos entregan una matriz de estado 4×4 resultante de haberle aplicado la transformación `SubBytes`.
+2. Para revertir esta sustitución y recuperar el estado original, debemos aplicar la **S-box inversa** (`inv_s_box`):
+   ```python
+   def sub_bytes(s, sbox=inv_s_box):
+       return [[sbox[s[i][j]] for j in range(4)] for i in range(4)]
+   ```
+3. Sustituimos cada byte $s_{i,j}$ por su entrada correspondiente `inv_s_box[s[i][j]]`.
+4. Convertimos la matriz resultante a bytes mediante `matrix2bytes()`.
+5. El texto plano recuperado contiene la flag: `crypto{l1n34rly}`.
+
+---
+
+## 6. Diffusion through Permutation
+
+### Flag
+`crypto{d1ffUs3R}`
+
+### Explicación
+El segundo principio de Shannon es la **difusión**: si cambiamos un solo bit del texto plano o de la clave, aproximadamente la mitad de los bits del texto cifrado deberían cambiar de forma impredecible (*efecto avalancha*). Mientras que `SubBytes` introduce no-linealidad localmente a nivel de cada byte individual, no mezcla información entre distintas posiciones del bloque. La difusión en AES se logra combinando dos pasos:
+
+1. **`ShiftRows` (Permutación a nivel de filas):**
+   - La fila 0 no se desplaza.
+   - La fila 1 se desplaza cíclicamente 1 posición a la izquierda.
+   - La fila 2 se desplaza cíclicamente 2 posiciones a la izquierda.
+   - La fila 3 se desplaza cíclicamente 3 posiciones a la izquierda.
+   - Para revertirlo (**`inv_shift_rows`**), simplemente desplazamos las filas en sentido inverso (hacia la derecha).
+
+2. **`MixColumns` (Transformación lineal a nivel de columnas):**
+   - Trata cada columna de 4 bytes como un polinomio sobre $\text{GF}(2^8)$ y la multiplica por una matriz fija módulo $x^4 + 1$.
+   - Para revertirlo (**`inv_mix_columns`**), se multiplica cada columna por la matriz inversa correspondiente.
+
+Para resolver este desafío:
+1. Nos entregan una matriz de estado tras la fase de difusión (`ShiftRows` seguido de `MixColumns`).
+2. Para revertir el proceso, debemos aplicar las transformaciones inversas en el **orden estrictamente opuesto**:
+   - Primero se aplica **`inv_mix_columns(matrix)`**.
+   - Luego se aplica **`inv_shift_rows(matrix)`**.
+3. Convertimos la matriz resultante a bytes con `matrix2bytes()`.
+4. El mensaje descifrado revela la flag: `crypto{d1ffUs3R}`.
+
+---
+
+## 7. Bringing It All Together
+
+### Flag
+`crypto{MYAES128}`
+
+### Explicación
+Este desafío integra todos los componentes vistos a lo largo del módulo en una rutina completa de **descifrado AES-128**:
+1. **Derivación de claves:** Se ejecuta el *Key Schedule* para generar las 11 subclaves de ronda ($K_0, K_1, \dots, K_{10}$) a partir de la clave maestra de 128 bits.
+2. **Inversión del flujo de AES:** Como el descifrado debe desandar el camino exacto del cifrado en reversa, las rondas y operaciones se aplican en orden inverso:
+   - **Ronda inicial de descifrado:** Se realiza `AddRoundKey` con la última subclave ($K_{10}$).
+   - Luego se aplica `inv_shift_rows` e `inv_sub_bytes`.
+   - **9 Rondas principales (de la ronda 9 a la 1):**
+     1. `AddRoundKey` con la subclave $K_r$.
+     2. `inv_mix_columns`.
+     3. `inv_shift_rows`.
+     4. `inv_sub_bytes`.
+   - **Ronda final de descifrado:** Se realiza `AddRoundKey` con la primera subclave ($K_0$).
+3. Al aplicar esta rutina completa sobre el bloque de texto cifrado (*ciphertext*) provisto en el reto, los 16 bytes resultantes se descifran en el texto plano original.
+4. El texto descifrado revela la flag final de la sección: `crypto{MYAES128}`.
