@@ -46,3 +46,44 @@ Para AES-128:
 - Aunque representa el **mejor ataque de clave única conocido contra AES** (*best single-key attack against AES*), la reducción es tan marginal que AES continúa siendo completamente seguro e inquebrantable en la práctica.
 
 Por lo tanto, el término buscado es **`biclique`**, y la flag solicitada es: `crypto{biclique}`.
+
+---
+
+## 3. Structure of AES
+
+### Flag
+`crypto{inmatrix}`
+
+### Explicación
+En AES-128, los datos no se procesan como un flujo lineal de 16 bytes, sino que se organizan internamente en una **matriz de estado** (*state matrix*) de 4×4 bytes. Sobre esta matriz se aplican 10 rondas de transformaciones algebraicas sucesivas:
+1. **KeyExpansion:** Se derivan 11 subclaves de ronda (*round keys*) de 128 bits cada una a partir de la clave original.
+2. **Initial AddRoundKey:** Se realiza un XOR bit a bit entre los bytes del bloque de texto plano y la primera subclave.
+3. **9 Rondas intermedias:** Cada una compuesta por:
+   - **`SubBytes`**: Sustitución no lineal de cada byte mediante una tabla fija (*S-box*).
+   - **`ShiftRows`**: Desplazamiento circular cíclico hacia la izquierda de las últimas tres filas de la matriz.
+   - **`MixColumns`**: Multiplicación matricial sobre el campo de Galois $\text{GF}(2^8)$ para difundir los bytes de cada columna.
+   - **`AddRoundKey`**: XOR con la subclave de la ronda actual.
+4. **Ronda final (Round 10):** Idéntica a las rondas intermedias pero omitiendo la fase `MixColumns`.
+
+Para resolver este desafío:
+1. El script provisto incluye la función `bytes2matrix(text)`, que divide una secuencia de 16 bytes en filas de 4 elementos para formar la matriz 4×4.
+2. Se nos entrega una matriz de estado numérica de 4×4:
+   ```python
+   matrix = [
+       [99, 114, 121, 112],
+       [116, 111, 123, 105],
+       [110, 109, 97, 116],
+       [114, 105, 120, 125],
+   ]
+   ```
+3. Implementamos la función inversa `matrix2bytes(matrix)` recorriendo las filas de la matriz y aplanando los valores en un único array de bytes o string:
+   ```python
+   def matrix2bytes(matrix):
+       return bytes([b for row in matrix for b in row])
+   ```
+4. Al convertir los 16 enteros ordinales a caracteres ASCII:
+   - Fila 0: `[99, 114, 121, 112]` → `'c'`, `'r'`, `'y'`, `'p'`
+   - Fila 1: `[116, 111, 123, 105]` → `'t'`, `'o'`, `'{'`, `'i'`
+   - Fila 2: `[110, 109, 97, 116]` → `'n'`, `'m'`, `'a'`, `'t'`
+   - Fila 3: `[114, 105, 120, 125]` → `'r'`, `'i'`, `'x'`, `'}'`
+5. Concatenando todos los bytes se reconstruye el texto plano original: `crypto{inmatrix}`.
